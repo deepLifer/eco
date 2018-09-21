@@ -1,0 +1,38 @@
+version: '3'
+services:
+  graphite:
+    image: graphiteapp/graphite-statsd
+    ports:
+      - "8080:8080"
+      - "80:80"
+      - "2003-2004:2003-2004"
+      - "2023-2024:2023-2024"
+      - "8125:8125/udp"
+      - "8126:8126"
+    networks:
+      - econetwork
+    volumes:
+      - /opt/graphite/conf:/opt/graphite/conf 
+      - /opt/graphite/data:/opt/graphite/storage 
+      - /opt/graphite/log:/var/log 
+      - /opt/graphite/statsd:/opt/statsd 
+    environment:
+      - graphite.env
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - econetwork
+    environment:
+      - grafana.env
+
+networks:
+  econetwork:
+    driver: bridge  
+
+volumes:
+  grafana-storage:
