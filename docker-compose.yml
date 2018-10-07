@@ -16,7 +16,7 @@ services:
       - /opt/graphite/data:/opt/graphite/storage 
       - /opt/graphite/log:/var/log 
       - /opt/graphite/statsd:/opt/statsd 
-    environment:
+    env_file:
       - graphite.env
 
   grafana:
@@ -27,7 +27,7 @@ services:
       - grafana-storage:/var/lib/grafana
     networks:
       - econetwork
-    environment:
+    env_file:
       - grafana.env
 
 networks:
