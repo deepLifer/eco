@@ -7,8 +7,8 @@ import xml
 from random import random, randrange
 from math import ceil
  
-start_time = datetime(2017, 1, 1, 0, 0, 0)
-end_time = datetime(2018, 1, 1, 0, 0, 0)
+start_time = datetime(2018, 10, 1, 0, 0, 0)
+end_time = datetime(2018, 10, 7, 0, 0, 0)
 step = 30
 doc_path = '/home/sergey/devel/eco_monitoring/xmls'
  
