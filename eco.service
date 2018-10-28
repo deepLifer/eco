@@ -1,0 +1,23 @@
+[Unit]
+Description=Ecomonitoring docker service
+After=docker.service
+Requires=docker.service
+
+
+[Service]
+Type=forking
+PIDFile=/home/sergey/devel/eco_monitoring/service.pid
+WorkingDirectory=/home/sergey/devel/eco_monitoring
+User=root
+Group=root
+
+ExecStart=/usr/local/bin/docker-compose up -d
+ExecStop=/usr/local/bin/docker-compose down
+ExecReload=/usr/local/bin/docker-compose restart
+TimeoutSec=300
+RestartSec=15
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target
