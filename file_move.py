@@ -10,43 +10,46 @@ from random import random, randrange
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 from xml.dom import minidom
 import graphitesend
-
-max_vals = {'41526':25, '41506':200,'41509':250, '41504':30, '41512':200, '41505':300}
-
-# 41526 - Кислород        20
-# 41506 - Двуокись азота  1-200
-# 41509 - Двуокись серы   2-250
-# 41504 - Хлороводород    0.2 - 30 
-# 41512 - Угарный газ     2 - 200 
-# 41505 - Окись азота     3 - 300
-
+ 
+max_vals = {'41526':30, '41506':200,'41509':50, '41504':10, '41512':50, '41505':200}
+ 
+# 41526 - Кислород        30
+# 41506 - Двуокись азота  1-200       max 200
+# 41509 - Двуокись серы   2-250       max 50
+# 41504 - Хлороводород    0.2 - 30    max 10
+# 41512 - Угарный газ     2 - 200     max 50
+# 41505 - Окись азота     3 - 300     max 200
+ 
 logger=logging.getLogger('processing')
 formatter = logging.Formatter('%(asctime)s-%(filename)s-%(message)s')
 fh = logging.FileHandler('processing.log')
 fh.setFormatter(formatter)
 logger.addHandler(fh)
-
-doc_path = '/home/sergey/devel/eco_monitoring/xmls'
-internal_server_ip = '192.168.0.23'
+ 
+doc_path = 'C:/оборудование/xml_12'
+internal_server_ip = '192.168.0.250'
 internal_port = '2003'
-prefix = 'device__1'
+prefix = 'device_12'
 
 
-external_server_ip = '192.168.0.23'
+external_server_ip = '23.20.213.83'
 external_port = '2003'
-
+#23.20.213.83
 def measure_filter(id, val, max_array):
     if float(val)>max_array[id]:
-        return max_array['id']-0.02
+        res = 0.9*max_array[id]-random()*0.05*max_array[id]
+        if res<0:
+            res=0
+        return res
     else:
         return val
-
+ 
 def process_file(filename):
     #print (filename)
     _data = {}
     _processed = False
     _sended = False
-
+ 
     #try to read data from file
     try:
         tree = xml.etree.ElementTree.parse(filename)
@@ -59,28 +62,28 @@ def process_file(filename):
             _data['alarm'] = root.find('BODY').find('SOURCE').find('CHEMNEY').find('ID_ALARM').text
         except Exception:
             pass
-            
+           
         _timestamp = time.mktime(datetime.datetime.strptime(_data['dt_avg'],"%d-%m-%Y %H-%M").timetuple())
         #print(_timestamp)
         measure_ids = []
         measure_vals = []
         measure_vals_filtered=[]
         measure_times=[]
-
+ 
         for measure in root.iter('MEASURE'):
             _id = measure.find('ID_PARAM').text
             _val = measure.find('VAL_AVG').text    
             if _val.find('t')>0:
                 _val=_val[3:]
             _dim = measure.find('DIMENSION').text
-            
-
+           
+ 
             measure_ids.append(_id)
             measure_vals.append(_val)
             measure_vals_filtered.append(measure_filter(_id, _val, max_vals))
          
             measure_times.append(_timestamp)
-
+ 
         _data['measure']=list(zip(measure_ids, measure_vals,measure_times))
         _data['measure_filtered']= list(zip(measure_ids, measure_vals_filtered,measure_times))
         _processed = True
@@ -91,8 +94,8 @@ def process_file(filename):
             logger.error('file {} moved to ERROR'.format(filename))
         except Exception as ex_mv:
             logger.error('problem with moving {}, details: {}'.format(filename, ex_mv))
-
-    #try send data to internal server 
+ 
+    #try send data to internal server
     try:
         send_data(_data, internal_server_ip, internal_port)
     except Exception as ex:
@@ -102,12 +105,12 @@ def process_file(filename):
             logger.error('file {} moved to ERROR'.format(filename))
         except Exception as ex_mv:
             logger.error('problem with moving {}, details: {}'.format(filename, ex_mv))
-    
+   
     _sended=True
-
-#try send data to external server 
+ 
+#try send data to external server
     try:
-        send_data(_data, external_server_ip, external_port)
+        send_data(_data, external_server_ip, external_port, filtered=True)
     except Exception as ex:
         logger.error('error with sending data external server {}, details: {}'.format(filename,ex))
         try:
@@ -115,20 +118,25 @@ def process_file(filename):
             logger.error('file {} moved to ERROR'.format(filename))
         except Exception as ex_mv:
             logger.error('problem with moving {}, details: {}'.format(filename, ex_mv))
-
-
+ 
+ 
     try:
         shutil.move(filename, doc_path+"/done")
         pass
     except Exception as ex_mv:
         logger.error('problem with moving {}, details: {}'.format(filename, ex_mv))
-        
-def send_data(data, server_ip, port):
-    g = graphitesend.init(graphite_server=server_ip, graphite_port=2003, prefix=prefix, )
-    g.send_list(data['measure'])
-    if data['alarm']!='':
-        g.send('alarm', data['alarm'], data['measure'][0][2])
-    pass
+       
+def send_data(data, server_ip, port, filtered=False):
+    g = graphitesend.init(graphite_server=server_ip, graphite_port=2003, prefix=prefix, timeout_in_seconds=10, )
+    
+    if filtered:
+        g.send_list(data['measure_filtered'])
+        if data['alarm']!='':
+            g.send('alarm', data['alarm'], data['measure_filtered'][0][2])
+    else:
+        g.send_list(data['measure'])
+        if data['alarm']!='':
+            g.send('alarm', data['alarm'], data['measure'][0][2])
  
  
 def main_loop():
@@ -136,5 +144,5 @@ def main_loop():
         if filename.endswith(".xml"):
             filename = os.path.join(doc_path, filename)
             process_file(filename)
-  
+ 
 main_loop()
