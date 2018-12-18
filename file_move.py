@@ -212,8 +212,8 @@ def process_file(filename):
             if _val.find('t')>0:
                 _val=_val[3:]
             _dim = measure.find('DIMENSION').text
-            fake_m = float(get_setting(config_name,_id,"fake_m"))
-            fake_d = float(get_setting(config_name,_id,"fake_d"))
+            fake_m = float(get_setting(config,_id,"fake_m"))
+            fake_d = float(get_setting(config,_id,"fake_d"))
             _fake_val = round(normalvariate(fake_m, fake_d),2)
  
             measure_ids.append(_id)
