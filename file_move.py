@@ -6,6 +6,7 @@ import shutil
 import sys
 import time
 import xml
+import codecs
 from math import ceil
 from os import path
 from random import random, randrange, normalvariate
@@ -107,7 +108,7 @@ def get_config(path):
         create_config(path)
     
     config = configparser.ConfigParser()
-    config.read(path)
+    config.read_file(codecs.open(path,"r","utf8"))
     return config
  
  
