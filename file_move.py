@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import configparser
 import datetime
 import logging
@@ -15,7 +17,6 @@ from xml.etree.ElementTree import Comment, Element, SubElement, tostring
 import graphitesend
 
 
- 
 # 41526 - Кислород        30
 # 41506 - Двуокись азота  1-200       max 200
 # 41509 - Двуокись серы   2-250       max 50
@@ -33,7 +34,11 @@ external_server_ip = ""
 internal_port = ""
 external_port = ""
 sections = ("41526", "41506", "41509", "41504", "41505", "41512", "NOx")
-
+send_real_internal = ""
+send_real_external = ""
+send_filtered_external = ""
+send_fake_external = ""
+config = None
 
 
 def create_config(path):
@@ -95,7 +100,6 @@ def create_config(path):
     config.set("general", "send_filtered_external", "1")
     config.set("general", "send_fake_external", "1")
 
-
     with open(path, "w") as config_file:
         config.write(config_file)
 
@@ -112,11 +116,10 @@ def get_config(path):
     return config
  
  
-def get_setting(path, section, setting):
+def get_setting(config , section, setting):
     """
     Print out a setting
     """
-    config = get_config(path)
     value = config.get(section, setting)
     msg = "{section} {setting} is {value}".format(
         section=section, setting=setting, value=value
@@ -136,19 +139,30 @@ def init():
     global external_server_ip
     global internal_port
     global external_port
+    global send_real_internal 
+    global send_real_external 
+    global send_filtered_external 
+    global send_fake_external 
+    global config
 
     config_name = sys.argv[1]
-    doc_path = get_setting(config_name, "general", "doc_path")
-    prefix = get_setting(config_name, "general", "prefix")
+    config = get_config(config_name)
+    doc_path = get_setting(config, "general", "doc_path")
+    prefix = get_setting(config, "general", "prefix")
 
-    internal_server_ip = get_setting(config_name, "network", "internal_server_ip")
-    external_server_ip = get_setting(config_name, "network", "external_server_ip")
-    internal_port = get_setting(config_name, "network", "internal_port")
-    external_port = get_setting(config_name, "network", "external_port")
+    internal_server_ip = get_setting(config, "network", "internal_server_ip")
+    external_server_ip = get_setting(config, "network", "external_server_ip")
+    internal_port = get_setting(config, "network", "internal_port")
+    external_port = get_setting(config, "network", "external_port")
+
+    send_real_internal = int(get_setting(config, "general", "send_real_internal"))
+    send_real_external = int(get_setting(config, "general", "send_real_external"))
+    send_filtered_external = int(get_setting(config, "general", "send_filtered_external"))
+    send_fake_external = int(get_setting(config, "general", "send_fake_external"))
 
     max_vals={}
     for x in sections:
-        max_vals[x]=get_setting(config_name,x,"max")
+        max_vals[x]=get_setting(config,x,"max")
 
     logger=logging.getLogger('processing')
     formatter = logging.Formatter('%(asctime)s-%(filename)s-%(message)s')
@@ -220,8 +234,6 @@ def process_file(filename):
         measure_vals_fake.append(_fake_val)
         measure_times.append(_timestamp)
 
-
-
         _data['measure']=list(zip(measure_ids, measure_vals,measure_times))
         _data['measure_filtered']= list(zip(measure_ids, measure_vals_filtered,measure_times))
         _data['measure_fake']= list(zip(measure_ids, measure_vals_fake,measure_times))
@@ -235,7 +247,7 @@ def process_file(filename):
             logger.error('problem with moving {}, details: {}'.format(filename, ex_mv))
  
 #try send data to internal server
-    if get_setting(config_name, "general", "send_real_internal")=="1":        
+    if send_real_internal == 1:        
         try:
             send_data(_data, internal_server_ip, internal_port)
         except Exception as ex:
@@ -243,7 +255,7 @@ def process_file(filename):
 
  
 #try send realdata to external server
-    if get_setting(config_name, "general", "send_real_external")=="1":        
+    if send_real_external == 1:        
         try:
             send_data(_data, external_server_ip, external_port)
         except Exception as ex:
@@ -251,14 +263,14 @@ def process_file(filename):
 
 
 #try send filtered_data to external server
-    if get_setting(config_name, "general", "send_filtered_external")=="1":
+    if send_filtered_external == 1:
         try:
             send_data(_data, external_server_ip, external_port, suffix='_f', array_name="measure_filtered")
         except Exception as ex:
             logger.error('error with sending filtered data external server {}, details: {}'.format(filename,ex))
 
 #try send filtered_data to external server
-    if get_setting(config_name, "general", "send_fake_external")=="1":
+    if send_fake_external == 1:
         try:
             send_data(_data, external_server_ip, external_port, suffix='_ff', array_name="measure_fake")
         except Exception as ex:
@@ -286,6 +298,7 @@ def main(argv):
         if filename.endswith(".xml"):
             filename = os.path.join(doc_path, filename)
             process_file(filename)
+            print(filename)
  
 if __name__ == "__main__":
     main(sys.argv)
